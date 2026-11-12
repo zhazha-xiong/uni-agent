@@ -112,7 +112,7 @@ func ptr[T any](v T) *T {
 }
 
 // getReq 获取 llm chat 请求体
-func getReq() (*ChatRequest, *Client, error) {
+func getReq() (*ChatRequest, *ChatClient, error) {
 	err := godotenv.Load("../../.env")
 	if err != nil {
 		return nil, nil, fmt.Errorf(".env 文件未找到")

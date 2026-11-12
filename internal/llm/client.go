@@ -11,23 +11,25 @@ import (
 	"strings"
 )
 
-type Client struct {
+type ChatClient struct {
 	APIKey     string
 	BaseUrl    string
 	HTTPClient *http.Client
 }
 
-func NewChatClient(apiKey, baseUrl string) *Client {
+var _ Client = (*ChatClient)(nil)
+
+func NewChatClient(apiKey, baseUrl string) *ChatClient {
 	c := &http.Client{}
 	// 确保 baseUrl 不含尾斜杠
 	if strings.HasSuffix(baseUrl, "/") {
 		baseUrl = baseUrl[:len(baseUrl)-1]
 	}
-	return &Client{APIKey: apiKey, BaseUrl: baseUrl, HTTPClient: c}
+	return &ChatClient{APIKey: apiKey, BaseUrl: baseUrl, HTTPClient: c}
 }
 
 // Stream 以 chat completions 流式方式发送请求
-func (c *Client) Stream(ctx context.Context, req *ChatRequest) (<-chan *StreamEvent, error) {
+func (c *ChatClient) Stream(ctx context.Context, req *ChatRequest) (<-chan *StreamEvent, error) {
 	if !req.Stream {
 		return nil, fmt.Errorf("[StreamChat] Stream is not true")
 	}
@@ -44,7 +46,7 @@ func (c *Client) Stream(ctx context.Context, req *ChatRequest) (<-chan *StreamEv
 }
 
 // Call 以 chat completions 非流式方式发送请求
-func (c *Client) Call(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
+func (c *ChatClient) Call(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
 	if req.Stream {
 		return nil, fmt.Errorf("[StreamChat] Stream is not false")
 	}
@@ -57,7 +59,7 @@ func (c *Client) Call(ctx context.Context, req *ChatRequest) (*ChatResponse, err
 }
 
 // doHttpRequest 发送 HTTP 请求
-func (c *Client) doHttpRequest(ctx context.Context, req *ChatRequest) (io.ReadCloser, error) {
+func (c *ChatClient) doHttpRequest(ctx context.Context, req *ChatRequest) (io.ReadCloser, error) {
 	if len(req.Messages) == 0 {
 		return nil, fmt.Errorf("消息体为空")
 	}
