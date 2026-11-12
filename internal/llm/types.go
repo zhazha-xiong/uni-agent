@@ -2,7 +2,7 @@ package llm
 
 import "encoding/json"
 
-// Role 是消息的发起角色
+// Role 消息的发起角色
 type Role string
 
 // 消息角色
@@ -13,7 +13,7 @@ const (
 	RoleTool      Role = "tool"
 )
 
-// Message 是对话中的一条消息，四种角色共用此结构
+// Message 对话中的一条消息，四种角色共用此结构
 type Message struct {
 	Role Role `json:"role"`
 
@@ -26,23 +26,23 @@ type Message struct {
 	ToolCallID string `json:"tool_call_id,omitempty"`
 }
 
-// ToolCall 是模型发起的一次工具调用
+// ToolCall 模型发起的一次工具调用
 type ToolCall struct {
 	ID       string       `json:"id"`
 	Type     string       `json:"type"` // 恒为 "function"
 	Function ToolCallFunc `json:"function"`
 }
 
-// ToolCallFunc 是调用的函数名与参数
+// ToolCallFunc 调用的函数名与参数
 type ToolCallFunc struct {
 	Name string `json:"name"`
 
-	// Arguments 是 JSON 字符串，不是 JSON 对象
+	// Arguments JSON 字符串，不是 JSON 对象
 	// 这里不解析：模型可能产出非法 JSON，解析与校验交给工具层
 	Arguments string `json:"arguments"`
 }
 
-// ToolSpec 是提供给模型的工具声明
+// ToolSpec 提供给模型的工具声明
 type ToolSpec struct {
 	Type     string      `json:"type"` // 恒为 "function"
 	Function FunctionDef `json:"function"`
@@ -53,7 +53,7 @@ type FunctionDef struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 
-	// Parameters 是 JSON Schema 原文，原样透传以免序列化时丢字段
+	// Parameters JSON Schema 原文，原样透传以免序列化时丢字段
 	Parameters json.RawMessage `json:"parameters,omitempty"`
 }
 
@@ -68,12 +68,12 @@ const (
 	ReasoningMax  ReasoningEffort = "max"
 )
 
-// Request 是 POST /chat/completions 的请求体
-type Request struct {
+// ChatRequest POST /chat/completions 的请求体
+type ChatRequest struct {
 	Model    string    `json:"model"`
 	Messages []Message `json:"messages"` // 至少 1 条
 
-	// ReasoningEffort 留空时服务端按 high 处理，即默认开启思考，本项目固定传 none
+	// ReasoningEffort 留空时服务端按 high 处理，即默认开启思考
 	ReasoningEffort ReasoningEffort `json:"reasoning_effort,omitempty"`
 
 	MaxTokens int `json:"max_tokens,omitempty"`
@@ -86,19 +86,19 @@ type Request struct {
 	Tools []ToolSpec `json:"tools,omitempty"`
 }
 
-// Response 是一次非流式回复
-type Response struct {
+// ChatResponse 一次非流式回复
+type ChatResponse struct {
 	Choices []Choice `json:"choices"`
 	Usage   *Usage   `json:"usage,omitempty"`
 }
 
-// Choice 是候选回复之一，取第 0 个即可
+// Choice 候选回复之一，取第 0 个即可
 type Choice struct {
 	Message      Message      `json:"message"`
 	FinishReason FinishReason `json:"finish_reason"`
 }
 
-// FinishReason 是模型停止生成的原因
+// FinishReason 模型停止生成的原因
 type FinishReason string
 
 // 停止原因
@@ -108,20 +108,26 @@ const (
 	FinishToolCalls FinishReason = "tool_calls"
 )
 
-// Usage 是 token 用量，上下文压缩时以它为准
+// Usage token 用量
 type Usage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 }
 
-// Chunk 是 SSE 流式响应中的一帧
+// StreamEvent 带错误的流式响应帧
+type StreamEvent struct {
+	Chunk *Chunk
+	Err   error
+}
+
+// Chunk SSE 流式响应中的一帧
 type Chunk struct {
 	Choices []ChunkChoice `json:"choices"`
 	Usage   *Usage        `json:"usage,omitempty"` // 只出现在最后一帧
 }
 
-// ChunkChoice 是分片中的一个候选
+// ChunkChoice 分片中的一个候选
 type ChunkChoice struct {
 	Delta Delta `json:"delta"`
 
@@ -129,13 +135,14 @@ type ChunkChoice struct {
 	FinishReason *FinishReason `json:"finish_reason"`
 }
 
-// Delta 是本帧相对上一帧的增量
+// Delta 本帧相对上一帧的增量
 type Delta struct {
+	Role      *Role           `json:"role,omitempty"`
 	Content   string          `json:"content,omitempty"`
 	ToolCalls []ToolCallChunk `json:"tool_calls,omitempty"`
 }
 
-// ToolCallChunk 是工具调用在流式下的分片
+// ToolCallChunk 工具调用在流式下的分片
 type ToolCallChunk struct {
 	Index    int                `json:"index"` // 决定分片归并到第几个调用
 	ID       string             `json:"id,omitempty"`
@@ -143,10 +150,10 @@ type ToolCallChunk struct {
 	Function *ToolCallFuncChunk `json:"function,omitempty"`
 }
 
-// ToolCallFuncChunk 是分片形式的函数名与参数
+// ToolCallFuncChunk 分片形式的函数名与参数
 type ToolCallFuncChunk struct {
 	Name string `json:"name,omitempty"`
 
-	// Arguments 是片段，按到达顺序拼接后才是完整 JSON
+	// Arguments 片段，按到达顺序拼接后才是完整 JSON
 	Arguments string `json:"arguments,omitempty"`
 }
