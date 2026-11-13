@@ -25,9 +25,6 @@ func main() {
 
 	// 注册工具
 	tool.Registry(amap.NewCityTool(cfg.AMAP.Key, cfg.AMAP.ConfigURL))
+	tool.Registry(amap.NewWeatherTool(cfg.AMAP.Key, cfg.AMAP.WeatherURL))
 
-	slog.Info("配置加载完成",
-		"llm_base_url", cfg.LLM.BaseURL,
-		"amap_configured", cfg.AMAP.Key != "",
-	)
 }

@@ -38,6 +38,10 @@ func Integer(desc string) Param {
 	return Param{Type: "integer", Description: desc}
 }
 
+func Boolean(desc string) Param {
+	return Param{Type: "boolean", Description: desc}
+}
+
 func ArrayOf(items Param, desc string) Param {
 	return Param{Type: "array", Description: desc, Items: &items}
 }

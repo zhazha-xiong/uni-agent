@@ -17,7 +17,7 @@ type cityParams struct {
 }
 
 type cityResponse struct {
-	Status    int        `json:"status"`
+	Status    string     `json:"status"`
 	Info      string     `json:"info"`
 	Districts []district `json:"districts"`
 }
@@ -100,8 +100,8 @@ func (c *cityClient) GetCityInfo(ctx context.Context, args json.RawMessage) (str
 		return "", fmt.Errorf("反序列化失败, %w", err)
 	}
 
-	if resp.Status == 0 {
-		return "", fmt.Errorf("调用API出错，错误码:%d,原因:%s", resp.Status, resp.Info)
+	if resp.Status != "1" {
+		return "", fmt.Errorf("调用API出错，错误码:%s,原因:%s", resp.Status, resp.Info)
 	}
 	districts, err := json.Marshal(resp.Districts)
 	if err != nil {
