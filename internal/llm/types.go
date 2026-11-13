@@ -1,6 +1,9 @@
 package llm
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Role 消息的发起角色
 type Role string
@@ -57,6 +60,12 @@ type FunctionDef struct {
 	Parameters json.RawMessage `json:"parameters,omitempty"`
 }
 
+// Request 调用 llm Chat/Stream 的请求体
+type Request struct {
+	Messages []Message  `json:"messages"`
+	Tools    []ToolSpec `json:"tools,omitempty"`
+}
+
 // ReasoningEffort 控制思考强度，none 表示关闭思考
 type ReasoningEffort string
 
@@ -68,10 +77,19 @@ const (
 	ReasoningMax  ReasoningEffort = "max"
 )
 
+func ParseReasoningEffort(s string) (ReasoningEffort, error) {
+	switch e := ReasoningEffort(s); e {
+	case ReasoningNone, ReasoningLow, ReasoningHigh, ReasoningMax:
+		return e, nil
+	default:
+		return "", fmt.Errorf("invalid reasoning effort %q", s)
+	}
+}
+
 // ChatRequest POST /chat/completions 的请求体
 type ChatRequest struct {
 	Model    string    `json:"model"`
-	Messages []Message `json:"messages"` // 至少 1 条
+	Messages []Message `json:"messages"`
 
 	// ReasoningEffort 留空时服务端按 high 处理，即默认开启思考
 	ReasoningEffort ReasoningEffort `json:"reasoning_effort,omitempty"`

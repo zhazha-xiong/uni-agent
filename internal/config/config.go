@@ -12,8 +12,12 @@ type Config struct {
 
 // LLM chat completions 客户端需要的参数
 type LLM struct {
-	APIKey  string
-	BaseURL string
+	APIKey      string
+	BaseURL     string
+	Model       string
+	Reason      string
+	MaxTokens   string
+	Temperature string
 }
 
 // AMAP 高德地图工具需要的参数
@@ -27,8 +31,12 @@ type AMAP struct {
 func Load() (Config, error) {
 	c := Config{
 		LLM: LLM{
-			APIKey:  os.Getenv("LLM_APIKEY"),
-			BaseURL: os.Getenv("LLM_BASEURL"),
+			APIKey:      os.Getenv("LLM_APIKEY"),
+			BaseURL:     os.Getenv("LLM_BASEURL"),
+			Model:       os.Getenv("LLM_MODEL"),
+			Reason:      os.Getenv("LLM_REASON"),
+			MaxTokens:   os.Getenv("LLM_MAXTOKENS"),
+			Temperature: os.Getenv("LLM_TEMPERATURE"),
 		},
 		AMAP: AMAP{
 			Key:        os.Getenv("AMAP_KEY"),
@@ -43,6 +51,9 @@ func Load() (Config, error) {
 	}
 	if c.LLM.BaseURL == "" {
 		missing = append(missing, "LLM_BASEURL")
+	}
+	if c.LLM.Model == "" {
+		missing = append(missing, "LLM_Model")
 	}
 	if c.AMAP.Key == "" {
 		missing = append(missing, "AMAP_KEY")

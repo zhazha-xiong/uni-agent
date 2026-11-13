@@ -8,32 +8,65 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
 type ChatClient struct {
-	APIKey     string
-	BaseUrl    string
-	HTTPClient *http.Client
+	APIKey      string
+	BaseUrl     string
+	Model       string
+	Effort      ReasoningEffort
+	MaxTokens   int
+	Temperature *float64
+	HTTPClient  *http.Client
 }
 
 var _ Client = (*ChatClient)(nil)
 
-func NewChatClient(apiKey, baseUrl string) *ChatClient {
-	c := &http.Client{}
+func NewChatClient(apiKey, baseUrl, model, reason, maxTokens, temperature string) (*ChatClient, error) {
 	// 确保 baseUrl 不含尾斜杠
 	if strings.HasSuffix(baseUrl, "/") {
 		baseUrl = baseUrl[:len(baseUrl)-1]
 	}
-	return &ChatClient{APIKey: apiKey, BaseUrl: baseUrl, HTTPClient: c}
+	c := ChatClient{APIKey: apiKey, BaseUrl: baseUrl, Model: model, HTTPClient: &http.Client{}}
+	if reason != "" {
+		effort, err := ParseReasoningEffort(reason)
+		if err != nil {
+			return nil, fmt.Errorf("创建 llm client 失败，思考强度非法")
+		}
+		c.Effort = effort
+	}
+	if maxTokens != "" {
+		tokens, err := strconv.Atoi(maxTokens)
+		if err != nil {
+			return nil, fmt.Errorf("创建 llm client 失败，MAX TOKENS 非法")
+		}
+		if tokens < 1 || tokens > 393216 {
+			return nil, fmt.Errorf("创建 llm client 失败，MAX TOKENS 非法")
+		}
+		c.MaxTokens = tokens
+	}
+	if temperature != "" {
+		t, err := strconv.ParseFloat(temperature, 64)
+		if err != nil {
+			return nil, fmt.Errorf("创建 llm client 失败，temperature 非法")
+		}
+		if t < 0 || t > 2 {
+			return nil, fmt.Errorf("创建 llm client 失败，temperature 非法")
+		}
+		c.Temperature = ptr(t)
+	}
+	return &c, nil
 }
 
 // Stream 以 chat completions 流式方式发送请求
-func (c *ChatClient) Stream(ctx context.Context, req *ChatRequest) (<-chan *StreamEvent, error) {
-	if !req.Stream {
-		return nil, fmt.Errorf("[StreamChat] Stream is not true")
+func (c *ChatClient) Stream(ctx context.Context, req *Request) (<-chan *StreamEvent, error) {
+	chatReq, err := c.buildChatRequest(req, true)
+	if err != nil {
+		return nil, err
 	}
-	respBody, err := c.doHttpRequest(ctx, req)
+	respBody, err := c.doHttpRequest(ctx, chatReq)
 	if err != nil {
 		return nil, err
 	}
@@ -46,16 +79,31 @@ func (c *ChatClient) Stream(ctx context.Context, req *ChatRequest) (<-chan *Stre
 }
 
 // Call 以 chat completions 非流式方式发送请求
-func (c *ChatClient) Call(ctx context.Context, req *ChatRequest) (*ChatResponse, error) {
-	if req.Stream {
-		return nil, fmt.Errorf("[StreamChat] Stream is not false")
+func (c *ChatClient) Call(ctx context.Context, req *Request) (*ChatResponse, error) {
+	chatReq, err := c.buildChatRequest(req, false)
+	if err != nil {
+		return nil, err
 	}
-
-	respBody, err := c.doHttpRequest(ctx, req)
+	respBody, err := c.doHttpRequest(ctx, chatReq)
 	if err != nil {
 		return nil, err
 	}
 	return processCallResp(respBody)
+}
+
+// buildChatRequest 组装 chatRequest
+func (c *ChatClient) buildChatRequest(req *Request, stream bool) (*ChatRequest, error) {
+	if req == nil {
+		return nil, fmt.Errorf("请求体为空")
+	}
+	chatReq := &ChatRequest{Model: c.Model,
+		Messages:        req.Messages,
+		ReasoningEffort: c.Effort,
+		MaxTokens:       c.MaxTokens,
+		Temperature:     c.Temperature,
+		Stream:          stream,
+		Tools:           req.Tools}
+	return chatReq, nil
 }
 
 // doHttpRequest 发送 HTTP 请求
@@ -162,4 +210,8 @@ func sendStreamEvent(ctx context.Context, messageChan chan<- *StreamEvent, se St
 		return ctx.Err()
 	}
 	return nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
